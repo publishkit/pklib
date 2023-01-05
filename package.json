@@ -1,5 +1,5 @@
 {
-  "name": "pk-lib",
+  "name": "pklib",
   "version": "0.0.9",
   "main": "dist/pklib.js",
   "license": "MIT",
