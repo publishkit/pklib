@@ -1,5 +1,5 @@
 {
-  "name": "pklib",
+  "name": "@publishkit/pklib",
   "version": "0.0.9",
   "main": "dist/pklib.js",
   "license": "MIT",
@@ -9,7 +9,9 @@
     "build": "NODE_ENV=prod rollup -c",
     "build:dev": "rollup -c"
   },
-  "files": ["dist/pklib.js"],
+  "files": [
+    "dist/pklib.js"
+  ],
   "devDependencies": {
     "@rollup/plugin-commonjs": "^24.0.0",
     "@rollup/plugin-json": "^6.0.0",
@@ -25,12 +27,25 @@
   },
   "dependencies": {
     "@types/fs-extra": "^9.0.13",
-    "crypto-aes-gcm": "^1.1.0",
     "filesize": "^10.0.6",
     "front-matter": "^4.0.2",
     "fs-extra": "^11.1.0",
     "glob": "^8.0.3",
     "js-beautify": "^1.14.7",
     "markdown-it": "^13.0.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/publishkit/pklib.git"
+  },
+  "keywords": [
+    "markdown",
+    "publishing"
+  ],
+  "author": "louis",
+  "bugs": {
+    "url": "https://github.com/publishkit/pklib/issues"
+  },
+  "homepage": "https://github.com/publishkit/pklib#readme",
+  "description": ""
 }
