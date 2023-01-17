@@ -32,8 +32,8 @@ export const header = (data: any = {}) => {
 
 export const body = (data: any = {}) => `
 <template id="frontmatter">\n${JSON.stringify(data.frontmatter)}\n</template>
-<template id="tags">\n${JSON.stringify(data.tags)}\n</template>
 <template id="content">\n${data.body}\n</template>`
+// <template id="tags">\n${JSON.stringify(data.tags)}\n</template>
 
 export const html = (data: any = {}) => `<!DOCTYPE html>
 <html>
@@ -116,3 +116,16 @@ search:
 To change some settings, just edit the frontmatter variables on top of this file and export it.
 
 You can find more about settings [here](https://publishkit.dev/settings).`
+
+
+
+export const navbar = () => `
+- [ ] welcome
+	- [[index|PublishKit]] || paper-plane
+	- [[settings|Settings]] || cog
+	- [[themes/index|Themes]] || palette
+	- [[plugins/index|Plugins]] || package
+	- [[showcase|Showcase]] ||  category
+	- [[pricing|Pricing]] || dollar-circle
+	- [[contact|Contact]] || envelope
+`

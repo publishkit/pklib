@@ -1,13 +1,15 @@
 import fs from "../utils/fs";
-import Lib from "../pklib";
+import PKLib from "../pklib";
 
 class Folder {
-  lib: Lib;
+  type: string;
+  pklib: PKLib;
   base: string;
   customWrite: Function;
 
-  constructor(lib: Lib) {
-    this.lib = lib;
+  constructor(pklib: PKLib, type: string) {
+    this.pklib = pklib;
+    this.type = type;
   }
 
   setBase(path: string) {
@@ -21,13 +23,14 @@ class Folder {
   }
 
   async write(path: string, data: any, options?: object) {
-    if(this.customWrite) return this.customWrite(path, data, options)
-    await fs.outputFile(this.toPath(path), data, options)
+    if (this.customWrite) return this.customWrite(path, data, options);
+    await fs.outputFile(this.toPath(path), data, options);
     return path;
   }
 
   async read(path: string, options?: object) {
-    return await fs.readFileSync(this.toPath(path), options);
+    // @ts-ignore
+    return fs.readFile(this.toPath(path), options);
   }
 
   async fileExist(path: string) {
@@ -35,13 +38,13 @@ class Folder {
   }
 
   lsFiles = async (ext: string = "md") => {
-    const { utils, cfg } = this.lib;
+    const { utils, cfg } = this.pklib;
     const regex = `${this.base}/**/*.${ext}`;
-    let list =  await utils.file.glob(regex);
+    let list = await utils.file.glob(regex);
     list = list.map((f: string) => f.replace(`${this.base}/`, ""));
 
-    const includesExps = utils.a.asArray(cfg("vault.include") || []);
-    const excludeExps = utils.a.asArray(cfg("vault.exclude") || []);
+    const includesExps = utils.a.asArray(cfg(`${this.type}.include`) || []);
+    const excludeExps = utils.a.asArray(cfg(`${this.type}.exclude`) || []);
 
     const files = list.filter((k: string) => {
       const include = !includesExps.length
@@ -61,15 +64,22 @@ class Folder {
   async dumpAssets(index: any, encoding?: any) {
     const assets = Object.values(index);
     return Promise.all(
-      assets.map(async (asset: any) => {
-        const source = `${"foobar"}/${asset.path}`;
-        const destination = asset.url;
-        if (!destination || (await this.fileExist(destination))) return;
+      assets.map(async (asset: Asset) => {
+        try {
+          const source = this.pklib.vault.toPath(asset.path);
+          const destination = asset.url;
+          if (!asset.url) throw new Error("asset is missing an url");
+          // return if file already exist, but dont throw
+          if (await this.fileExist(asset.url)) return;
 
-        const img = fs.readFileSync(source, { encoding });
-        if (!img) return;
-        await this.write(destination, img, { encoding });
-        return destination;
+          const img = fs.readFileSync(source, { encoding });
+          await this.write(asset.url, img, { encoding });
+          return asset.url;
+        } catch (e) {
+          asset.type = "error";
+          asset.err = e.message || e;
+          this.pklib.parser.index(asset);
+        }
       })
     );
   }
@@ -77,11 +87,17 @@ class Folder {
   async dumpNotes(index: any, encoding?: any) {
     const notes = Object.values(index);
     return Promise.all(
-      notes.map(async (note: any) => {
-        const { content, url } = note;
-        if (!url || !content) return;
-        await this.write(url, content);
-        return url;
+      notes.map(async (asset: Asset) => {
+        try {
+          const { content, url } = asset;
+          if (!url || !content) throw new Error("asset has no url or content");
+          await this.write(url, content);
+          return url;
+        } catch (e) {
+          asset.type = "error";
+          asset.err = e.message || e;
+          this.pklib.parser.index(asset);
+        }
       })
     );
   }

@@ -1,25 +1,32 @@
 import utils from "./utils/index";
 import Folder from "./lib/folder";
 import Parser from "./lib/parser";
+import DB from "./lib/db";
 import * as TPL from "./tpl";
 
-export default class Lib {
+export default class PKLib {
   utils;
   env: ObjectAny;
   pkrc: ObjectAny;
   pkrcfly: ObjectAny;
-  vault;
-  kit;
+  vault: Folder;
+  kit: Folder;
+  db: DB;
   cfg: Function;
+  preExport: Function;
+  postExport: Function;
   version: string;
   verbose: boolean;
   parser: Parser;
+  isProcessing: boolean;
+  error: any;
 
   constructor(options: ObjectAny = {}) {
     this.utils = utils;
-    this.vault = new Folder(this);
-    this.kit = new Folder(this);
+    this.vault = new Folder(this, "vault");
+    this.kit = new Folder(this, "kit");
     this.parser = new Parser(this);
+    this.db = new DB("pkdb");
     if (options.verbose) this.verbose = true;
     this.guessEnv();
     // this.init();
@@ -38,27 +45,56 @@ export default class Lib {
     this.#log("init");
   };
 
-  exportFile = async (files: string | string[], follow?: boolean) => {
+  exportFile = async (files: string | string[], options?: ExportOptions) => {
+    this.isProcessing = true;
     const { parser, utils, cfg } = this;
+    options = options || {};
     files = utils.a.asArray(files);
     parser.resetIndex();
 
-    const [firstFile] = files;
-    let [lastFile] = files;
+    const preExport = await (this.preExport || (() => {}))();
 
     const run = async (notes: string[]) => {
       for (const file of notes) {
-        if (file.split(".").pop() != "md") continue;
         if (!file) continue;
-        lastFile = file;
+        if (file.split(".").pop() != "md") continue;
 
         const asset = await this.fileToAsset(file);
 
         try {
           const md = await parser.parseMD(file);
-          const dom = await parser.processHtml(md.html);
 
-          // set current file pkrc
+          // pkrc file
+          if (asset.path == "pkrc.md") {
+            const content = utils.o.clone(
+              md.frontmatter,
+              "obsidian,vault,password"
+            );
+            asset.content = JSON.stringify(content, null, 2);
+            asset.url = "pkrc.json";
+            asset.type = "json";
+            parser.index(asset);
+            continue;
+          }
+
+          // process html
+          let win = await parser.processHtml(md.html);
+          let doc = win.document;
+
+          // navbar file
+          if (asset.path == "navbar.md") {
+            const content = this.utils.dom.parseUl(
+              win,
+              doc.querySelector("ul")
+            );
+            asset.content = JSON.stringify(content, null, 2);
+            asset.url = "navbar.json";
+            asset.type = "json";
+            parser.index(asset);
+            continue;
+          }
+
+          // set note file pkrc
           this.pkrcfly = utils.o.merge({}, this.pkrc, md.frontmatter);
           const title =
             cfg("title") ||
@@ -68,10 +104,20 @@ export default class Lib {
           cfg.set("title", title);
 
           // encrypt if needed
-          await this.encryptFile(dom);
-          const { body, doc } = this.buildHTML(dom.body.innerHTML, md);
+          await this.encryptFile(doc);
+          const html = await this.buildHTML(doc.body.innerHTML, md);
+          // get new win
+          win = html.window;
+          doc = win.document;
 
-          asset.type = "current";
+          asset.type = "note";
+          asset.content = html.html;
+          asset.title = doc.title;
+          asset.tags = md.tags;
+          asset.text = await parser.getTextFromElement(
+            doc,
+            doc.getElementById("content")
+          );
         } catch (e) {
           asset.type = "error";
           asset.err = e.message || e;
@@ -85,13 +131,72 @@ export default class Lib {
       // 	if (followNotes.length) await run(followNotes);
       // }
     };
-
     await run(files);
 
-    return parser.cache;
+    if (!options.dry) await this.dumpFiles();
+    if (!options.dry) await this.dbSave();
+    if (options.inspect) console.log("cache", parser.cache);
+
+    const summary = parser.print();
+
+    const postExport = await (this.postExport || (() => {}))({
+      files,
+      preExport,
+    });
+
+    this.isProcessing = false;
+    return { cache: parser.cache, summary };
   };
 
-  buildHTML = (bodyText: string, md: ObjectAny = {}) => {
+  dbSave = async () => {
+    const { db, parser, utils } = this;
+    await db.load();
+
+    const saveNS = async (ns: string) => {
+      const col = `${ns}s`;
+      // @ts-ignore
+      const index = parser.cache[ns];
+      const items = Object.keys(index);
+
+      items.forEach((item: string | Asset) => {
+        item = utils.o.clone(index[item as string], "content") as Asset;
+        db.set(col, item.hash, item);
+      });
+
+      // delete missing files
+      if (col == "notes") {
+        const kitFiles = await this.kit.lsFiles("html");
+        const dbHashes = db.get(col);
+        const kitHashes = await Promise.all(
+          kitFiles.map(async (f) => utils.c.getHash(f))
+        );
+        const diff = Object.keys(dbHashes).filter(
+          (x) => !kitHashes.includes(x)
+        );
+        diff.map((key) => {
+          db.unset(col, key);
+        });
+      }
+    };
+
+    await saveNS("note");
+    await saveNS("image");
+    await saveNS("pdf");
+
+    await db.save();
+  };
+
+  dumpFiles = async () => {
+    const { cache } = this.parser;
+    return await Promise.all([
+      this.kit.dumpNotes(cache.json),
+      this.kit.dumpNotes(cache.note),
+      this.kit.dumpAssets(cache.image, "base64"),
+      this.kit.dumpAssets(cache.pdf),
+    ]);
+  };
+
+  buildHTML = async (bodyText: string, md: ObjectAny = {}) => {
     const { utils } = this;
     const head = TPL.header({ cfg: this.cfg });
     const tags = md.tags;
@@ -99,8 +204,9 @@ export default class Lib {
     const body = utils.s.beautify(
       TPL.body({ tags, frontmatter, body: bodyText })
     );
-    const doc = utils.s.beautify(TPL.html({ head, body }));
-    return { body, doc };
+    const html = utils.s.beautify(TPL.html({ head, body }));
+    const win = await this.parser.getWindowFromString(html);
+    return { html, body, window: win };
   };
 
   encryptFile = async (dom: Document) => {
@@ -110,33 +216,25 @@ export default class Lib {
     dom.body.innerHTML = `_crypted_` + encrypted;
   };
 
-  getAssetsFolder = () => {
-    let f = this.cfg("site.assets", "assets");
-    if (f.startsWith("http")) return f;
-    if (f.startsWith("/")) f = f.slice(1);
-    if (f.endsWith("/")) f = f.slice(0, -1);
-    return f;
-  };
-
   fileToAsset = async (file: string): Promise<Asset> => {
     const filename = file.split("/").pop() || "";
-    const subpath = file.replace(filename, "");
     const ext = filename.split(".").pop()?.toLowerCase() || "";
-    const hash = await this.utils.c.getHash(file);
 
-    let url,
-      type = "";
+    let url = "";
+    let type = "";
 
     if (ext == "md") {
       url = file.replace(".md", `.html`);
       type = "md";
     }
     if ("jpg,jpeg,gif,png,pdf".split(",").includes(ext)) {
-      url = `${this.getAssetsFolder()}/${hash}.${ext}`;
+      // url = `${this.getAssetsFolder()}/${hash}.${ext}`;
+      url = file;
       type = ext == "pdf" ? "pdf" : "image";
     }
 
-    return { path: file, filename, ext, subpath, hash, url, type };
+    const hash = await this.utils.c.getHash(url);
+    return { path: file, filename, ext, hash, url, type };
   };
 
   setPkrc = (pkrc: ObjectAny) => {
@@ -144,17 +242,18 @@ export default class Lib {
     if (!Object.keys(pkrc).length) throw new Error("inavalid pkrc data");
     this.#log("set:pkrc");
     this.pkrc = pkrc;
-    this.kit.setBase(pkrc.vault?.export_folder || `${this.env.cwd}/kit`);
+    const kitBase = pkrc.vault?.export_folder || `${this.env.cwd}/kit`;
+    this.kit.setBase(kitBase);
+    this.db.setBase(kitBase);
     this.version = pkrc.pk?.version || "latest";
   };
 
   getPkrc = (cwd?: string, ext: string = "md") => {
-    const content = utils.fs.readFileSync(
-      `${cwd || this.env.cwd}/pkrc.${ext}`,
-      {
-        encoding: "utf8",
-      }
-    );
+    const file = `${cwd || this.env.cwd}/pkrc.${ext}`;
+    if (!utils.fs.existsSync(file)) return false;
+
+    const content = utils.fs.readFileSync(file, "utf8");
+
     return ext == "md"
       ? utils.md.parseFrontmatter(content).frontmatter
       : JSON.parse(content);
@@ -202,32 +301,41 @@ export default class Lib {
       cwd = process.cwd();
       if (
         utils.fs.existsSync(`${cwd}/.obsidian`) ||
-        utils.fs.existsSync(`${cwd}/pkrc.md`) ||
-        !utils.fs.existsSync(`${cwd}/pkrc.json`)
+        utils.fs.existsSync(`${cwd}/pkrc.md`)
       ) {
         type = "vault";
       }
     }
 
-    if (type == "vault") {
-      try {
+    try {
+      if (type == "vault") {
         vault = cwd;
         pkrc = this.getPkrc(cwd);
         kit = pkrc.vault?.export_folder || `${cwd}/kit`;
-      } catch (e) {}
-    } else {
-      try {
-        type = "kit";
-        pkrc = this.getPkrc(cwd, "json");
-        kit = cwd;
-      } catch (e) {
-        // not found
+      } else {
+        if (utils.fs.existsSync(`${cwd}/pkrc.json`)) {
+          type = "kit";
+          pkrc = this.getPkrc(cwd, "json");
+          kit = cwd;
+        }
       }
+
+      if (vault) this.vault.setBase(vault);
+      if (pkrc) this.setPkrc(pkrc);
+      this.env = { cwd, type, vault, kit, isObsidian };
+    } catch (e) {
+      this.error = this.betterError(e);
+      this.#log("error", this.error);
     }
 
-    if (vault) this.vault.setBase(vault);
-    if (pkrc) this.setPkrc(pkrc);
-    this.env = { cwd, type, vault, kit, isObsidian };
     // this.#log("env", this.env);
+  };
+
+  betterError = (e: any) => {
+    let err;
+    if (e.name == "YAMLException")
+      err = `Invalid Yaml in pkrc.md file. Fix & restart !\n\n${e.message}`;
+    else err = e;
+    return err;
   };
 }

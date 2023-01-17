@@ -4,6 +4,7 @@ import typescript from "@rollup/plugin-typescript";
 import json from "@rollup/plugin-json";
 import externals from "rollup-plugin-node-externals";
 import commonjs from "@rollup/plugin-commonjs";
+import { nodeResolve } from "@rollup/plugin-node-resolve";
 import cleanup from "rollup-plugin-cleanup";
 import { terser } from "rollup-plugin-terser";
 // import execute from "rollup-plugin-execute";
@@ -20,6 +21,7 @@ rollup.push({
     json(),
     externals(),
     commonjs(),
+    nodeResolve(),
     cleanup(),
     isProd && terser()
   ],
