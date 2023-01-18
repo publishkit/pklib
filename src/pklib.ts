@@ -242,7 +242,7 @@ export default class PKLib {
     if (!Object.keys(pkrc).length) throw new Error("inavalid pkrc data");
     this.#log("set:pkrc");
     this.pkrc = pkrc;
-    const kitBase = pkrc.vault?.export_folder || `${this.env.cwd}/kit`;
+    const kitBase = pkrc.vault?.export_folder || this.env.kit;
     this.kit.setBase(kitBase);
     this.db.setBase(kitBase);
     this.version = pkrc.pk?.version || "latest";
@@ -320,9 +320,10 @@ export default class PKLib {
         }
       }
 
+      this.env = { cwd, type, vault, kit, isObsidian };
+
       if (vault) this.vault.setBase(vault);
       if (pkrc) this.setPkrc(pkrc);
-      this.env = { cwd, type, vault, kit, isObsidian };
     } catch (e) {
       this.error = this.betterError(e);
       this.#log("error", this.error);
