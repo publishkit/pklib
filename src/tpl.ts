@@ -24,11 +24,11 @@ export const header = (data: any = {}) => {
 <link rel="apple-touch-icon" sizes="180x180" href="assets/favicons/apple-touch-icon.png" />
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicons/favicon-32x32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicons/favicon-16x16.png" />
-<script type="text/javascript" src="http://localhost:1337/sdk.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/publishkit/sdk@latest/sdk.js"></script>
 `
 }
+// <script type="text/javascript" src="http://localhost:1337/sdk.js"></script>
 
-// // <script type="text/javascript" src="https://cdn.jsdelivr.net/gh/publishkit/sdk@latest/sdk.js"></script>
 
 export const body = (data: any = {}) => `
 <template id="frontmatter">\n${JSON.stringify(data.frontmatter)}\n</template>
@@ -67,6 +67,13 @@ vault:
       - '^templates/'
       - '^test/'
 
+# 🚀 PublishKit
+
+pk:
+  version: latest
+  dirs: true
+
+
 # 🔱 Site
 
 site:
@@ -81,27 +88,33 @@ site:
 
 plugins: 
   header: true
-  cdnfonts: true
+  modal: true
+  fonts: true
   darkmode: true
   navbar: true
   toc: true
   search: true
   social: true
-  highlightjs: true
+  highlight: true
 
 
 # ⚙️  Plugins settings
 
-highlightjs:
-  theme: arta
+header:
+  fluid: true
+  contrast: true
 
-cdnfonts:
+fonts:
   font: Marcher
+  headings: Marcher
+
+highlight:
+  theme: arta
 
 social:
   github: https://publishkit.dev
   discord: https://publishkit.dev
-  
+
 search:
   chars: 3
   fuzzy: 0.2

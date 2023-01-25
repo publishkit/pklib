@@ -45,6 +45,37 @@ export default class PKLib {
     this.#log("init");
   };
 
+  loadDirsConfig = async (asset: Asset) => {
+    const { vault, utils, pkrc } = this;
+    if (!pkrc.pk?.dirs) return [];
+
+    const dirs = asset.path.split("/").slice(0, -1).filter(Boolean);
+
+    const paths = dirs.map((dir, i) => {
+      if (i == 0) return dir;
+      const prev = dirs[i - 1];
+      return [prev, dir].join("/");
+    });
+
+    const files = await Promise.allSettled(
+      paths.map(async (path) => {
+        try {
+          const file = await vault.read(`${path}/_dir.md`, {
+            encoding: "utf-8",
+          });
+          // @ts-ignore
+          const { frontmatter } = utils.md.parseFrontmatter(file);
+          return Object.keys(frontmatter).length ? frontmatter : false;
+        } catch (e) {
+          return false;
+        }
+      })
+    );
+
+    // @ts-ignore
+    return files.map((r) => r.value).filter(Boolean);
+  };
+
   exportFile = async (files: string | string[], options?: ExportOptions) => {
     this.isProcessing = true;
     const { parser, utils, cfg } = this;
@@ -77,6 +108,19 @@ export default class PKLib {
             continue;
           }
 
+          // _dir files
+          if (asset.path.split("/").pop() == "_dir.md") {
+            const content = utils.o.clone(
+              md.frontmatter,
+              "obsidian,vault,password"
+            );
+            asset.content = JSON.stringify(content, null, 2);
+            asset.url = asset.path.replace(".md", ".json");
+            asset.type = "json";
+            parser.index(asset);
+            continue;
+          }
+
           // process html
           let win = await parser.processHtml(md.html);
           let doc = win.document;
@@ -95,7 +139,9 @@ export default class PKLib {
           }
 
           // set note file pkrc
-          this.pkrcfly = utils.o.merge({}, this.pkrc, md.frontmatter);
+          const dirs = await this.loadDirsConfig(asset);
+          this.pkrcfly = utils.o.merge({}, this.pkrc, ...dirs, md.frontmatter);
+
           const title =
             cfg("title") ||
             cfg("og.title") ||
@@ -242,6 +288,7 @@ export default class PKLib {
     if (!Object.keys(pkrc).length) throw new Error("inavalid pkrc data");
     this.#log("set:pkrc");
     this.pkrc = pkrc;
+    this.pkrcfly = {};
     const kitBase = pkrc.vault?.export_folder || this.env.kit;
     this.kit.setBase(kitBase);
     this.db.setBase(kitBase);
@@ -266,6 +313,7 @@ export default class PKLib {
 
   async createPkrc(data: ObjectAny = {}) {
     if (this.env.type == "kit") throw new Error(`cannot init a "kit" folder`);
+
     if (await this.vault?.fileExist("pkrc.md"))
       throw new Error("pkrc.md already exist");
     data.vault = data.vault || {};
@@ -317,9 +365,13 @@ export default class PKLib {
           type = "kit";
           pkrc = this.getPkrc(cwd, "json");
           kit = cwd;
+        }else{
+          vault = cwd;
+          type = "vault"
         }
       }
 
+      
       this.env = { cwd, type, vault, kit, isObsidian };
 
       if (vault) this.vault.setBase(vault);

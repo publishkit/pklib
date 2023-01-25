@@ -58,6 +58,7 @@ class Folder {
       return include && !exclude;
     });
 
+    console.log("lsFiles", files);
     return files;
   };
 
