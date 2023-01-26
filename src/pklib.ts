@@ -60,7 +60,7 @@ export default class PKLib {
     const files = await Promise.allSettled(
       paths.map(async (path) => {
         try {
-          const file = await vault.read(`${path}/_dir.md`, {
+          const file = await vault.read(`${path}/dirrc.md`, {
             encoding: "utf-8",
           });
           // @ts-ignore
@@ -108,8 +108,8 @@ export default class PKLib {
             continue;
           }
 
-          // _dir files
-          if (asset.path.split("/").pop() == "_dir.md") {
+          // dirrc files
+          if (asset.path.split("/").pop() == "dirrc.md") {
             const content = utils.o.clone(
               md.frontmatter,
               "obsidian,vault,password"
