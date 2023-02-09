@@ -1,46 +1,60 @@
-
 // const tpl: { [key: string]: any; } = {}
 
 // export default tpl
 
-
 export const header = (data: any = {}) => {
-  const { cfg: rawCfg } = data
+  const { cfg: cfg } = data;
 
-  const double2singleQuote = (s: any) => (typeof s == 'string' ? s.replace(/"/g, "'") : s)
-  const cfg = (k: any) => double2singleQuote(rawCfg(k))
+  const double2singleQuote = (s: any) =>
+    typeof s == "string" ? s.replace(/"/g, "'") : s;
+  const escaped = (k: any) => double2singleQuote(cfg(k));
+
+  const getValue = (v: string) =>
+    escaped(v) || escaped(`og.${v}`) || escaped(`site.${v}`) || "";
+
+  const og = cfg("og", {});
+  const meta = "url,title,description,image,name,keyswords"
+    .split(",")
+    .reduce((acc: ObjectAny, key) => {
+      acc[key] = getValue(key);
+      if ("url,title,description,image".includes(key)) og[key] = acc[key]; // og keys
+      if (key == "name") og["site_name"] = acc[key]; // og remap
+      return acc;
+    }, {});
+
+  const buildMeta = (index: ObjectAny, og?: boolean) =>
+    Object.keys(index).reduce((acc, key: string) => {
+      const prop = og ? "property" : "name";
+      const value = og ? `og:${key}` : key;
+      const content = index[key];
+      return (acc +=
+        (index[key] && `<meta ${prop}="${value}" content="${content}" />`) ||
+        "");
+    }, "");
+
+  meta.viewport = "width=device-width, initial-scale=1, maximum-scale=1";
+  const metaTags = buildMeta(meta);
+  const ogTags = buildMeta(og, true);
 
   return `
+<title>${cfg("title")}</title>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>${rawCfg('title')}</title>
-<meta name="description" content="${cfg('description') || cfg('site.description') || cfg('og.description') || ''}" />
-<meta property="og:title" content="${cfg('og.title') || cfg('title')}" />
-<meta property="og:description" content="${ cfg('og.description') || cfg('description') || cfg('site.description') || ''}" />${Object.entries(rawCfg('og', {})).reduce((acc, [key, value]) => {
-    if(['title', 'description'].includes(key)) return acc
-    return acc += `
-<meta property="og:${key}" content="${double2singleQuote(value)}" />`
-}, '')}
-<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/publishkit/sdk@latest/sdk.js"></script>
-`
-}
-// <script type="text/javascript" src="http://localhost:1337/sdk.js"></script>
-
+${metaTags}
+${ogTags}
+<script type="text/javascript" src="https://cdn.jsdelivr.net/gh/publishkit/kit@latest/init.js"></script>
+`;
+};
 
 export const body = (data: any = {}) => `
 <template id="frontmatter">\n${JSON.stringify(data.frontmatter)}\n</template>
-<template id="content">\n${data.body}\n</template>`
+<template id="content">\n${data.body}\n</template>`;
 // <template id="tags">\n${JSON.stringify(data.tags)}\n</template>
 
 export const html = (data: any = {}) => `<!DOCTYPE html>
 <html>
     <head>${data.head}</head>
     <body>\n${data.body}\n</body>
-</html>`
-
-
-
-
+</html>`;
 
 // tpl.navbar = () => `
 // - [ ] welcome
@@ -59,10 +73,14 @@ export const pkrc = (data: any = {}) => `---
 
 vault:
     export_folder: ${data.vault.export_folder}
+    include: 
+      - '^pkrc.md'
+      - '^(index|navbar).md$'
+      - '^blog/'
     exclude: 
       - '^kit/'
       - '^templates/'
-      - '^test/'
+      - '^blog/draft'
 
 # 🚀 PublishKit
 
@@ -77,22 +95,20 @@ site:
   id: ${data.site.id}
   name: ${data.site.name}
   description: Welcome to ${data.site.name}
-  url: https://publishkit.dev
-  theme: default
+  url: https://your-site-domain.com
 
 
 # 📦 Plugins
 
 plugins: 
+  theme: "@default"
   header: true
   modal: true
-  fonts: true
   darkmode: true
   navbar: true
   toc: true
   search: true
   social: true
-  highlight: true
 
 
 # ⚙️  Plugins settings
@@ -100,13 +116,6 @@ plugins:
 header:
   fluid: true
   contrast: true
-
-fonts:
-  font: Marcher
-  headings: Marcher
-
-highlight:
-  theme: arta
 
 social:
   github: https://publishkit.dev
@@ -125,9 +134,7 @@ search:
 
 To change some settings, just edit the frontmatter variables on top of this file and export it.
 
-You can find more about settings [here](https://publishkit.dev/settings).`
-
-
+You can find more about settings [here](https://publishkit.dev/settings).`;
 
 export const navbar = () => `
 - [ ] welcome
@@ -138,4 +145,4 @@ export const navbar = () => `
 	- [[showcase|Showcase]] ||  category
 	- [[pricing|Pricing]] || dollar-circle
 	- [[contact|Contact]] || envelope
-`
+`;
