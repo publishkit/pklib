@@ -7,8 +7,8 @@ import * as TPL from "./tpl";
 export default class PKLib {
   utils;
   env: ObjectAny;
-  pkrc: ObjectAny;
-  pkrcfly: ObjectAny;
+  kitrc: ObjectAny;
+  kitrcfly: ObjectAny;
   vault: Folder;
   kit: Folder;
   db: DB;
@@ -26,15 +26,15 @@ export default class PKLib {
     this.vault = new Folder(this, "vault");
     this.kit = new Folder(this, "kit");
     this.parser = new Parser(this);
-    this.db = new DB("pkdb");
+    this.db = new DB("kitdb");
     if (options.verbose) this.verbose = true;
     this.guessEnv();
     // this.init();
 
     this.cfg = (key: string, fallback?: any) =>
-      utils.o.get(this.pkrcfly, key) || utils.o.get(this.pkrc, key) || fallback;
+      utils.o.get(this.kitrcfly, key) || utils.o.get(this.kitrc, key) || fallback;
     (this.cfg as any).set = (key: string, value: any) =>
-      utils.o.put(this.pkrcfly, key, value);
+      utils.o.put(this.kitrcfly, key, value);
   }
 
   #log = (...args: any[]) => {
@@ -46,8 +46,8 @@ export default class PKLib {
   };
 
   loadDirsConfig = async (asset: Asset) => {
-    const { vault, utils, pkrc } = this;
-    if (!pkrc.pk?.dirs) return [];
+    const { vault, utils, kitrc } = this;
+    if (!kitrc.pk?.dirs) return [];
 
     const dirs = asset.path.split("/").slice(0, -1).filter(Boolean);
 
@@ -95,14 +95,14 @@ export default class PKLib {
         try {
           const md = await parser.parseMD(file);
 
-          // pkrc file
-          if (asset.path == "pkrc.md") {
+          // kitrc file
+          if (asset.path == "kitrc.md") {
             const content = utils.o.clone(
               md.frontmatter,
               "obsidian,vault,password"
             );
             asset.content = JSON.stringify(content, null, 2);
-            asset.url = "pkrc.json";
+            asset.url = "kitrc.json";
             asset.type = "json";
             parser.index(asset);
             continue;
@@ -138,9 +138,9 @@ export default class PKLib {
             continue;
           }
 
-          // set note file pkrc
+          // set note file kitrc
           const dirs = await this.loadDirsConfig(asset);
-          this.pkrcfly = utils.o.merge({}, this.pkrc, ...dirs, md.frontmatter);
+          this.kitrcfly = utils.o.merge({}, this.kitrc, ...dirs, md.frontmatter);
 
           const title =
             cfg("title") ||
@@ -283,20 +283,20 @@ export default class PKLib {
     return { path: file, filename, ext, hash, url, type };
   };
 
-  setPkrc = (pkrc: ObjectAny) => {
-    pkrc = pkrc || {};
-    if (!Object.keys(pkrc).length) throw new Error("inavalid pkrc data");
-    this.#log("set:pkrc");
-    this.pkrc = pkrc;
-    this.pkrcfly = {};
-    const kitBase = pkrc.vault?.export_folder || this.env.kit;
+  setKitrc = (kitrc: ObjectAny) => {
+    kitrc = kitrc || {};
+    if (!Object.keys(kitrc).length) throw new Error("inavalid kitrc data");
+    this.#log("set:kitrc");
+    this.kitrc = kitrc;
+    this.kitrcfly = {};
+    const kitBase = kitrc.vault?.kit_folder || this.env.kit;
     this.kit.setBase(kitBase);
     this.db.setBase(kitBase);
-    this.version = pkrc.pk?.version || "latest";
+    this.version = kitrc.pk?.version || "latest";
   };
 
-  getPkrc = (cwd?: string, ext: string = "md") => {
-    const file = `${cwd || this.env.cwd}/pkrc.${ext}`;
+  getKitrc = (cwd?: string, ext: string = "md") => {
+    const file = `${cwd || this.env.cwd}/kitrc.${ext}`;
     if (!utils.fs.existsSync(file)) return false;
 
     const content = utils.fs.readFileSync(file, "utf8");
@@ -306,20 +306,20 @@ export default class PKLib {
       : JSON.parse(content);
   };
 
-  reloadPkrc = () => {
-    const pkrc = this.getPkrc();
-    this.setPkrc(pkrc);
+  reloadKitrc = () => {
+    const kitrc = this.getKitrc();
+    this.setKitrc(kitrc);
   };
 
-  async createPkrc(data: ObjectAny = {}) {
+  async createKitrc(data: ObjectAny = {}) {
     if (this.env.type == "kit") throw new Error(`cannot init a "kit" folder`);
 
-    if (await this.vault?.fileExist("pkrc.md"))
-      throw new Error("pkrc.md already exist");
+    if (await this.vault?.fileExist("kitrc.md"))
+      throw new Error("kitrc.md already exist");
     data.vault = data.vault || {};
-    data.vault.export_folder =
-      data.vault.export_folder ||
-      this.pkrc?.vault?.export_folder ||
+    data.vault.kit_folder =
+      data.vault.kit_folder ||
+      this.kitrc?.vault?.kit_folder ||
       `${this.env.vault}/kit`;
 
     data.site = data.site || {};
@@ -329,8 +329,8 @@ export default class PKLib {
         this.env.vault.split("/").pop()?.replace(/-/g, " ")
       );
     data.site.id = data.site.id || "";
-    const content = TPL.pkrc(data);
-    return this.vault.write("pkrc.md", content);
+    const content = TPL.kitrc(data);
+    return this.vault.write("kitrc.md", content);
   }
 
   guessEnv = () => {
@@ -338,7 +338,7 @@ export default class PKLib {
       type = "",
       vault,
       kit,
-      pkrc,
+      kitrc,
       isObsidian = false;
     try {
       //@ts-ignore
@@ -349,7 +349,7 @@ export default class PKLib {
       cwd = process.cwd();
       if (
         utils.fs.existsSync(`${cwd}/.obsidian`) ||
-        utils.fs.existsSync(`${cwd}/pkrc.md`)
+        utils.fs.existsSync(`${cwd}/kitrc.md`)
       ) {
         type = "vault";
       }
@@ -358,12 +358,12 @@ export default class PKLib {
     try {
       if (type == "vault") {
         vault = cwd;
-        pkrc = this.getPkrc(cwd);
-        kit = pkrc.vault?.export_folder || `${cwd}/kit`;
+        kitrc = this.getKitrc(cwd);
+        kit = kitrc.vault?.kit_folder || `${cwd}/kit`;
       } else {
-        if (utils.fs.existsSync(`${cwd}/pkrc.json`)) {
+        if (utils.fs.existsSync(`${cwd}/kitrc.json`)) {
           type = "kit";
-          pkrc = this.getPkrc(cwd, "json");
+          kitrc = this.getKitrc(cwd, "json");
           kit = cwd;
         }else{
           vault = cwd;
@@ -375,7 +375,7 @@ export default class PKLib {
       this.env = { cwd, type, vault, kit, isObsidian };
 
       if (vault) this.vault.setBase(vault);
-      if (pkrc) this.setPkrc(pkrc);
+      if (kitrc) this.setKitrc(kitrc);
     } catch (e) {
       this.error = this.betterError(e);
       this.#log("error", this.error);
@@ -387,7 +387,7 @@ export default class PKLib {
   betterError = (e: any) => {
     let err;
     if (e.name == "YAMLException")
-      err = `Invalid Yaml in pkrc.md file. Fix & restart !\n\n${e.message}`;
+      err = `Invalid Yaml in kitrc.md file. Fix & restart !\n\n${e.message}`;
     else err = e;
     return err;
   };

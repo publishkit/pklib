@@ -56,54 +56,48 @@ export const html = (data: any = {}) => `<!DOCTYPE html>
     <body>\n${data.body}\n</body>
 </html>`;
 
-// tpl.navbar = () => `
-// - [ ] welcome
-// 	- [[index|PublishKit]] || paper-plane
-// 	- [[settings|Settings]] || cog
-// 	- [[themes/index|Themes]] || palette
-// 	- [[plugins/index|Plugins]] || package
-// 	- [[showcase|Showcase]] ||  category
-// 	- [[pricing|Pricing]] || dollar-circle
-// 	- [[contact|Contact]] || envelope
-// `
 
-export const pkrc = (data: any = {}) => `---
+export const kitrc = (data: any = {}) => `---
 
 # 📂 Vault
 
 vault:
-    export_folder: ${data.vault.export_folder}
-    include: 
-      - '^pkrc.md'
-      - '^(index|navbar).md$'
-      - '^blog/'
-    exclude: 
-      - '^kit/'
-      - '^templates/'
-      - '^blog/draft'
+  kit_folder: ${data.vault.kit_folder}
+  include: 
+    - '^(kitrc|index|navbar).md$'
+    - '^blog/'
+    - '^notes/'
+  exclude: 
+    - '^kit/'
+    - '^templates/'
+    - '^blog/draft'
 
-# 🚀 PublishKit
 
-pk:
+# 🧰 Kit
+
+kit:
   version: latest
-  dirs: true
+  dirs: false
 
 
-# 🔱 Site
+# 🖥️ Site
 
 site:
   id: ${data.site.id}
   name: ${data.site.name}
   description: Welcome to ${data.site.name}
   url: https://your-site-domain.com
+  keyswords: publishkit, blogging, markdown
+
+og:
+  image: https://publishkit.dev/attachements/og-image.png
 
 
-# 📦 Plugins
+# 🔌 Plugins
 
 plugins: 
   theme: "@default"
   header: true
-  modal: true
   darkmode: true
   navbar: true
   toc: true
@@ -113,36 +107,29 @@ plugins:
 
 # ⚙️  Plugins settings
 
-header:
-  fluid: true
-  contrast: true
-
 social:
   github: https://publishkit.dev
   discord: https://publishkit.dev
 
-search:
-  chars: 3
-  fuzzy: 0.2
-  padding: 40
-  max_results: 5
-
 ---
 
-# PublishKit Global Settings
+# KITRC
+
+KITRC stands for Kit **R**un **C**ommands
+It holds your site global configuration. 
+
+To change settings or add plugins, simply edit the frontmatter variables on top of the file. When you are done, export the file in your kit by running the export command.
+
+If your \`kitrc.md\` file is valid frontmatter wise, you should see a \`kitrc.json\` at the root of your kit folder after export.
 
 
-To change some settings, just edit the frontmatter variables on top of this file and export it.
+Check out documentation at https://publishkit.dev`;
 
-You can find more about settings [here](https://publishkit.dev/settings).`;
 
-export const navbar = () => `
-- [ ] welcome
-	- [[index|PublishKit]] || paper-plane
-	- [[settings|Settings]] || cog
-	- [[themes/index|Themes]] || palette
-	- [[plugins/index|Plugins]] || package
-	- [[showcase|Showcase]] ||  category
-	- [[pricing|Pricing]] || dollar-circle
-	- [[contact|Contact]] || envelope
-`;
+
+
+
+
+
+
+export const navbar = () => ``;
