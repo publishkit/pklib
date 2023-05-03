@@ -112,18 +112,16 @@ social:
   discord: https://publishkit.dev
 
 ---
-
 # KITRC
 
-KITRC stands for Kit **R**un **C**ommands
-It holds your site global configuration. 
-
-To change settings or add plugins, simply edit the frontmatter variables on top of the file. When you are done, export the file in your kit by running the export command.
-
-If your \`kitrc.md\` file is valid frontmatter wise, you should see a \`kitrc.json\` at the root of your kit folder after export.
+KITRC stands for Kit **R**un **C**ommands.
+It holds your app global configuration. 
 
 
-Check out documentation at https://publishkit.dev`;
+Edit settings or add plugins, and export the file in your kit. If the file is valid frontmatter wise, you should see a \`kitrc.json\` at the root of your kit folder.
+
+
+Check out https://publishkit.dev`;
 
 
 
