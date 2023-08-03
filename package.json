@@ -1,6 +1,6 @@
 {
   "name": "@publishkit/pklib",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "main": "dist/pklib.js",
   "license": "MIT",
   "scripts": {

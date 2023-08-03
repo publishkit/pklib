@@ -212,19 +212,6 @@ const defaultTransformer = async (win: Window, txs: any[], pklib: PKLib) => {
       parser.index(asset);
     },
   ]);
-
-  // txs.push([
-  //   ".pdf-embed iframe",
-  //   async (el: any) => {
-  //     const path = this.getLocalPath(el.getAttribute("src"));
-  //     const asset = await fileToAsset(path);
-  //     if (!asset) return;
-  //     el.setAttribute("src", asset.url);
-  //     el.setAttribute("frameBorder", "no");
-  //     el.removeAttribute("style");
-  //     parser.index(asset);
-  //   },
-  // ]);
 };
 
 // const tpl = `---

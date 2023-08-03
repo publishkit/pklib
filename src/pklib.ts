@@ -273,8 +273,7 @@ export default class PKLib {
       url = file.replace(".md", `.html`);
       type = "md";
     }
-    if ("jpg,jpeg,gif,png,pdf".split(",").includes(ext)) {
-      // url = `${this.getAssetsFolder()}/${hash}.${ext}`;
+    if ("jpg,jpeg,gif,png,svg,pdf".split(",").includes(ext)) {
       url = file;
       type = ext == "pdf" ? "pdf" : "image";
     }
